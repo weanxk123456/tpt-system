@@ -769,8 +769,9 @@ export default {
         // 调用后端接口
         const response = await apiService.generateLookbackPlot(formData)
         // ✅ 正确处理平级 success
-        if (response.data.success) {
-          this.chartData = response.data.plot_data
+
+        if (response.success) {
+          this.chartData = response.plot_data
           this.staticPlotData = null // 清空静态图表数据
         }
         // 后端返回 success=false 且带 error

@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import io
 from scipy.integrate import simpson
 from typing import Dict, Any, List, Tuple
-from flask import Flask, request, jsonify, send_file, render_template, session
+from flask import Flask, request, jsonify, send_file, render_template, session, Response
 from werkzeug.utils import secure_filename
 from flask_session import Session
 from flask_cors import CORS
@@ -25,6 +25,7 @@ import pandas as pd
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import base64
 from datetime import datetime
+import traceback
 
 # 设置中文显示
 plt.rcParams["font.family"] = ["SimHei", "WenQuanYi Micro Hei", "Heiti TC"]
@@ -360,42 +361,39 @@ def generate_static_plot():
 def generate_lookback_plot():
     """生成回看数据对比图表"""
     try:
+        # 检查会话
         if "session_id" not in session:
             return jsonify({"success": False, "error": "请先刷新页面建立会话"}), 400
         session_id = session["session_id"]
-
+        # 加载计算器
         calculator = get_calculator(session_id)
         if not calculator:
             return jsonify({"success": False, "error": "请先上传并计算指标"}), 400
-
+        # 检查上传的训练数据
         if "training_data" not in request.files:
             return jsonify({"success": False, "error": "请上传训练数据文件"}), 400
-
         training_file = request.files["training_data"]
+        # 获取参数
         pattern_idx = int(request.form.get("pattern_idx", 0))
         target_idx = int(request.form.get("target_idx", 0))
         lookback_steps = int(request.form.get("lookback_steps", 10))
-
-        # 验证索引
+        # 验证索引参数
         if pattern_idx < 0 or pattern_idx >= calculator.num_patterns:
             return jsonify({"success": False, "error": f"无效的样本索引: {pattern_idx}"}), 400
         if target_idx < 0 or target_idx >= calculator.num_targets:
             return jsonify({"success": False, "error": f"无效的目标索引: {target_idx}"}), 400
         if lookback_steps <= 0:
             return jsonify({"success": False, "error": "回看步数必须大于0"}), 400
-
         # 加载训练数据
         try:
             training_data = np.load(training_file.stream)
         except Exception as e:
             return jsonify({"success": False, "error": f"无法加载训练数据文件: {str(e)}"}), 400
-
         # 验证训练数据形状
         if training_data.ndim != 3:
             return jsonify({"success": False, "error": "训练数据必须是三维数组 (patterns, pred_len, num_targets)"}), 400
         if training_data.shape[0] != calculator.num_patterns or training_data.shape[2] != calculator.num_targets:
             return jsonify({"success": False, "error": "训练数据与预测/真实数据样本数或目标数不匹配"}), 400
-
         # 生成回看图表数据
         plot_data = calculator.generate_lookback_plot_data(
             training_data=training_data,
@@ -404,10 +402,34 @@ def generate_lookback_plot():
             lookback_steps=lookback_steps
         )
 
-        return jsonify({"success": True, "plot_data": plot_data})
+        # ---- 递归处理 NaN 和 numpy 类型 ----
+        def nan_to_none(obj):
+            if isinstance(obj, dict):
+                return {k: nan_to_none(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [nan_to_none(v) for v in obj]
+            elif isinstance(obj, np.ndarray):
+                return nan_to_none(obj.tolist())
+            elif isinstance(obj, (np.float32, np.float64, float)):
+                if np.isnan(obj):
+                    return None
+                return float(obj)
+            elif isinstance(obj, (np.int32, np.int64, int)):
+                return int(obj)
+            elif obj is None:
+                return None
+            else:
+                return obj
+
+        clean_plot_data = nan_to_none(plot_data)
+        print(type(clean_plot_data))
+
+        return jsonify({"success": True, "plot_data": clean_plot_data})
 
     except Exception as e:
+        traceback.print_exc()
         return jsonify({"success": False, "error": f"生成回看对比图时发生错误: {str(e)}"}), 500
+
 
 def generate_clickable_regions(true_values, pred_values, sample_indices):
     """生成可点击区域的坐标信息"""

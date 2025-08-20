@@ -1,9 +1,14 @@
 import axios from 'axios'
 
 // 配置基础URL，开发环境下指向Flask后端
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? '' // 生产环境使用相对路径
-  : 'http://localhost:5000' // 开发环境指向Flask服务器
+const API_BASE_URL = (() => {
+    if (process.env.NODE_ENV === 'production') {
+        return '' // 生产环境使用相对路径
+    } else {
+        // 开发环境本机访问 Flask，或者局域网访问可替换成服务器 IP
+        return 'http://localhost:5000'
+    }
+})()
 
 const api = axios.create({
   baseURL: API_BASE_URL,
