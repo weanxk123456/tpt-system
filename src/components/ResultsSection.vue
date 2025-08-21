@@ -307,10 +307,11 @@
     </div>
 
     <!-- 指标卡片 -->
-    <MetricsCard 
-      v-if="showMetrics" 
-      :metrics="currentMetrics"
-      class="mb-8"
+    <MetricsCard
+        v-if="showMetrics"
+        :metrics="currentMetrics"
+        :avgMetrics="resultsData?.avg_metrics"
+        class="mb-8"
     />
 
     <!-- 异常样本检测结果 -->

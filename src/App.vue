@@ -19,8 +19,8 @@
       <UploadSection @upload-success="handleUploadSuccess" @error="handleError" />
 
       <!-- 结果区域 -->
-      <ResultsSection 
-        v-if="showResults" 
+      <ResultsSection
+        v-if="showResults"
         :results-data="resultsData"
         @new-calculation="handleNewCalculation"
         @error="handleError"
@@ -69,7 +69,7 @@ export default {
     return {
       showResults: false,
       resultsData: null,
-      errorMessage: ''
+      errorMessage: '',
     }
   },
   methods: {
